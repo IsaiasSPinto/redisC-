@@ -90,7 +90,15 @@ static string[] BulkStringToStringArray(string data)
     {
         var args = data
             .Substring(2).TrimStart().Split("$").Skip(1)
-            .Select(x => x.Substring(1).Trim());
+            .Select(x =>
+            {
+
+                if (int.TryParse(x[1].ToString(), System.Globalization.CultureInfo.InvariantCulture, out _))
+                    return x.Substring(2).Trim();
+
+
+                return x.Substring(1).Trim();
+            });
 
         return args.ToArray();
     }
