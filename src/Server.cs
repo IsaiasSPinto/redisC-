@@ -52,7 +52,7 @@ async Task HandleClientAsync(Socket client)
                 throw new ArgumentException("SET command requires a key and a value");
             }
 
-            if (args.Length == 5 && String.Equals(args[3], "PK", StringComparison.InvariantCultureIgnoreCase))
+            if (args.Length == 5 && String.Equals(args[3], "PX", StringComparison.InvariantCultureIgnoreCase))
             {
                 if (long.TryParse(args[4], System.Globalization.CultureInfo.InvariantCulture, out long ttl))
                 {
