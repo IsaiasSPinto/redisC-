@@ -4,6 +4,8 @@ using System.Text;
 
 Console.WriteLine("Logs from your program will appear here!");
 
+Dictionary<string, string> _data = new Dictionary<string, string>();
+
 TcpListener server = new TcpListener(IPAddress.Any, 6379);
 server.Start();
 
@@ -15,7 +17,7 @@ while (true)
 }
 
 
-async static Task HandleClientAsync(Socket client)
+async Task HandleClientAsync(Socket client)
 {
     while (client.Connected)
     {
@@ -41,6 +43,36 @@ async static Task HandleClientAsync(Socket client)
 
             var response = Encoding.ASCII.GetBytes(ConvertToBulkString(args[1]));
             await client.SendAsync(response);
+        }
+
+        if (String.Equals(args[0], "SET", StringComparison.InvariantCultureIgnoreCase))
+        {
+            if (args.Length < 3)
+            {
+                throw new ArgumentException("SET command requires a key and a value");
+            }
+
+            _data[args[1]] = args[2];
+            await client.SendAsync(Encoding.ASCII.GetBytes("+OK\r\n"));
+            client.Close();
+        }
+
+        if (String.Equals(args[0], "GET", StringComparison.InvariantCultureIgnoreCase))
+        {
+            if (args.Length < 2)
+            {
+                await client.SendAsync(Encoding.ASCII.GetBytes("$-1\r\n"));
+            }
+
+            if (_data.TryGetValue(args[1], out var value))
+            {
+                var response = Encoding.ASCII.GetBytes(ConvertToBulkString(value));
+                await client.SendAsync(response);
+            }
+            else
+            {
+                await client.SendAsync(Encoding.ASCII.GetBytes("$-1\r\n"));
+            }
         }
 
 
