@@ -52,30 +52,26 @@ async Task HandleClientAsync(Socket client)
                 throw new ArgumentException("SET command requires a key and a value");
             }
 
+            long? expireTimestamp = null;
+
             if (args.Length == 5 && String.Equals(args[3], "PX", StringComparison.InvariantCultureIgnoreCase))
             {
                 if (long.TryParse(args[4], System.Globalization.CultureInfo.InvariantCulture, out long ttl))
                 {
-                    _data[args[1]] = new CacheEntry
-                    {
-                        Value = args[2],
-                        ExpiryTimeOnUTC = DateTime.UtcNow.AddMilliseconds(ttl)
-                    };
-
+                    expireTimestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() + ttl;
                 }
                 else
                 {
                     throw new ArgumentException("Invalid TTL value");
                 }
             }
-            else
+
+            _data[args[1]] = new CacheEntry
             {
-                _data[args[1]] = new CacheEntry
-                {
-                    Value = args[2],
-                    ExpiryTimeOnUTC = null
-                };
-            }
+                Value = args[2],
+                ExpiryTimestamp = expireTimestamp
+            };
+
 
             await client.SendAsync(Encoding.ASCII.GetBytes("+OK\r\n"));
         }
@@ -89,14 +85,16 @@ async Task HandleClientAsync(Socket client)
 
             if (_data.TryGetValue(args[1], out var cacheEntry))
             {
-                if (cacheEntry.ExpiryTimeOnUTC.HasValue && cacheEntry.ExpiryTimeOnUTC.Value < DateTime.UtcNow)
+                if (cacheEntry.ExpiryTimestamp.HasValue && cacheEntry.ExpiryTimestamp.Value < DateTimeOffset.UtcNow.ToUnixTimeMilliseconds())
                 {
                     _data.Remove(args[1]);
                     await client.SendAsync(Encoding.ASCII.GetBytes("$-1\r\n"));
                 }
-
-                var response = Encoding.ASCII.GetBytes(ConvertToBulkString(cacheEntry.Value));
-                await client.SendAsync(response);
+                else
+                {
+                    var response = Encoding.ASCII.GetBytes(ConvertToBulkString(cacheEntry.Value));
+                    await client.SendAsync(response);
+                }
             }
             else
             {
@@ -140,6 +138,6 @@ static string[] BulkStringToStringArray(string data)
 public class CacheEntry
 {
     public string Value { get; set; }
-    public DateTime? ExpiryTimeOnUTC { get; set; }
+    public long? ExpiryTimestamp { get; set; }
 }
 
