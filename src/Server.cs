@@ -10,4 +10,10 @@ TcpListener server = new TcpListener(IPAddress.Any, 6379);
 server.Start();
 var client = server.AcceptSocket(); // wait for client
 
-await client.SendAsync(Encoding.UTF8.GetBytes("+PONG\r\n"));
+while (client.Connected)
+{
+    var buffer = new byte[1024];
+    await client.ReceiveAsync(buffer);
+    await client.SendAsync(Encoding.ASCII.GetBytes("+PONG\r\n"));
+}
+
