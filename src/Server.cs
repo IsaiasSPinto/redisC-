@@ -4,7 +4,7 @@ using System.Text;
 
 Console.WriteLine("Logs from your program will appear here!");
 
-Dictionary<string, string> _data = new Dictionary<string, string>();
+Dictionary<string, CacheEntry> _data = new Dictionary<string, CacheEntry>();
 
 TcpListener server = new TcpListener(IPAddress.Any, 6379);
 server.Start();
@@ -52,7 +52,29 @@ async Task HandleClientAsync(Socket client)
                 throw new ArgumentException("SET command requires a key and a value");
             }
 
-            _data[args[1]] = args[2];
+            if (args.Length == 5 && String.Equals(args[3], "PK", StringComparison.InvariantCultureIgnoreCase))
+            {
+                if (long.TryParse(args[4], System.Globalization.CultureInfo.InvariantCulture, out long ttl))
+                {
+                    _data[args[1]] = new CacheEntry
+                    {
+                        Value = args[2],
+                        ExpiryTimeOnUTC = DateTime.UtcNow.AddMilliseconds(ttl)
+                    };
+
+                }
+                else
+                {
+                    throw new ArgumentException("Invalid TTL value");
+                }
+            }
+
+            _data[args[1]] = new CacheEntry
+            {
+                Value = args[2],
+                ExpiryTimeOnUTC = null
+            };
+
             await client.SendAsync(Encoding.ASCII.GetBytes("+OK\r\n"));
         }
 
@@ -63,9 +85,15 @@ async Task HandleClientAsync(Socket client)
                 await client.SendAsync(Encoding.ASCII.GetBytes("$-1\r\n"));
             }
 
-            if (_data.TryGetValue(args[1], out var value))
+            if (_data.TryGetValue(args[1], out var cacheEntry))
             {
-                var response = Encoding.ASCII.GetBytes(ConvertToBulkString(value));
+                if (cacheEntry.ExpiryTimeOnUTC.HasValue && cacheEntry.ExpiryTimeOnUTC.Value < DateTime.UtcNow)
+                {
+                    _data.Remove(args[1]);
+                    await client.SendAsync(Encoding.ASCII.GetBytes("$-1\r\n"));
+                }
+
+                var response = Encoding.ASCII.GetBytes(ConvertToBulkString(cacheEntry.Value));
                 await client.SendAsync(response);
             }
             else
@@ -77,6 +105,8 @@ async Task HandleClientAsync(Socket client)
 
     }
 }
+
+
 
 static string ConvertToBulkString(string data)
 {
@@ -103,5 +133,11 @@ static string[] BulkStringToStringArray(string data)
     }
 
     return [data.Substring(1).Trim()];
+}
+
+public class CacheEntry
+{
+    public string Value { get; set; }
+    public DateTime? ExpiryTimeOnUTC { get; set; }
 }
 
