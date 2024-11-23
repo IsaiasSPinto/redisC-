@@ -68,12 +68,14 @@ async Task HandleClientAsync(Socket client)
                     throw new ArgumentException("Invalid TTL value");
                 }
             }
-
-            _data[args[1]] = new CacheEntry
+            else
             {
-                Value = args[2],
-                ExpiryTimeOnUTC = null
-            };
+                _data[args[1]] = new CacheEntry
+                {
+                    Value = args[2],
+                    ExpiryTimeOnUTC = null
+                };
+            }
 
             await client.SendAsync(Encoding.ASCII.GetBytes("+OK\r\n"));
         }
