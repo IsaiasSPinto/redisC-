@@ -54,7 +54,6 @@ async Task HandleClientAsync(Socket client)
 
             _data[args[1]] = args[2];
             await client.SendAsync(Encoding.ASCII.GetBytes("+OK\r\n"));
-            client.Close();
         }
 
         if (String.Equals(args[0], "GET", StringComparison.InvariantCultureIgnoreCase))
